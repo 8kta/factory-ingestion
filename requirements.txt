@@ -1,0 +1,19 @@
+# Database Drivers
+psycopg2-binary>=2.9.0
+mysql-connector-python>=8.0.0
+pyodbc>=4.0.0
+cassandra-driver>=3.25.0
+
+# AWS Services
+boto3>=1.26.0
+
+# Search Engines
+opensearch-py>=2.0.0
+pysolr>=3.9.0
+
+# Messaging Systems
+kafka-python>=2.0.0
+pika>=1.3.0
+
+# Configuration
+PyYAML>=6.0
