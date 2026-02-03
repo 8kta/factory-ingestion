@@ -180,6 +180,44 @@ factory-ingestion/
 └── requirements.txt             # Python dependencies
 ```
 
+## Schema Transformer
+
+Transform client responses into structured data matching JSON schemas. Normalize data from different sources into a consistent format.
+
+### Quick Example
+
+```python
+from src.schema_transformer import SchemaTransformer
+
+# Define schema
+schema = {
+    'type': 'object',
+    'properties': {
+        'user_id': {'type': 'integer', 'source': 'id'},
+        'full_name': {'type': 'string', 'source': 'name'},
+        'email': {'type': 'string', 'format': 'email'}
+    }
+}
+
+# Transform data
+transformer = SchemaTransformer(schema)
+result = transformer.transform(raw_data)
+```
+
+### Features
+
+- ✅ **Type Conversions** - Automatic type conversion (string, number, integer, boolean, array, object)
+- ✅ **Field Mapping** - Rename and remap fields from source to target
+- ✅ **Nested Data** - Access nested fields with dot notation (`user.profile.email`)
+- ✅ **Default Values** - Specify defaults for missing fields
+- ✅ **Custom Transformers** - Add custom transformation logic for specific fields
+- ✅ **Array Support** - Transform arrays and arrays of objects
+- ✅ **Format Handling** - Special handling for dates, emails, URIs, UUIDs
+- ✅ **Validation** - Validate data against schema (strict/non-strict modes)
+- ✅ **Schema Registry** - Manage multiple schemas centrally
+
+See `SCHEMA_TRANSFORMER.md` for detailed documentation and examples.
+
 ## Error Handling and Logging
 
 The library includes comprehensive error handling and structured logging throughout the application.
