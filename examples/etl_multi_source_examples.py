@@ -253,8 +253,7 @@ def etl_sqlite_to_csv():
         for product in products:
             sqlite_reader.execute_query(
                 "INSERT INTO products VALUES (?, ?, ?, ?, ?)",
-                {'id': product[0], 'name': product[1], 'category': product[2], 
-                 'price': product[3], 'stock': product[4]}
+                product  # Pass tuple directly for positional parameters
             )
         
         # Extract data
