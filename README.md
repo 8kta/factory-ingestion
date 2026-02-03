@@ -180,6 +180,53 @@ factory-ingestion/
 └── requirements.txt             # Python dependencies
 ```
 
+## Data Writers and ETL Pipelines
+
+Write transformed data to multiple destinations and build complete ETL pipelines.
+
+### Supported Writers (8)
+
+**Cloud Storage:**
+- ✅ AWS S3 (JSON, JSON Lines, CSV with gzip compression)
+- ✅ Azure Blob Storage
+- ✅ Google Cloud Storage (GCS)
+
+**Databases:**
+- ✅ MongoDB
+- ✅ Cassandra
+
+**Search Engines:**
+- ✅ OpenSearch
+- ✅ Apache Solr
+
+**Local:**
+- ✅ CSV files
+
+### Complete ETL Pipeline
+
+```python
+from src.client_factory import ClientFactory
+from src.schema_transformer import SchemaTransformer
+from src.writer_factory import WriterFactory
+
+# EXTRACT from OpenSearch
+reader = ClientFactory.create_client('opensearch', reader_config)
+with reader:
+    raw_data = reader.execute_query('*', {'index': 'logs'})
+
+# TRANSFORM with schema
+transformer = SchemaTransformer(schema)
+transformed_data = transformer.transform(raw_data)
+
+# LOAD to S3
+writer = WriterFactory.create_writer('s3', writer_config)
+with writer:
+    result = writer.write(transformed_data)
+    print(f"Wrote {result['records_written']} records to {result['s3_uri']}")
+```
+
+See `DATA_WRITERS_AND_ETL.md` for complete documentation and `examples/etl_opensearch_to_s3.py` for working examples.
+
 ## Schema Transformer
 
 Transform client responses into structured data matching JSON schemas. Normalize data from different sources into a consistent format.
