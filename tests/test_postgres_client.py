@@ -1,6 +1,12 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
+import psycopg2
 from src.clients.postgres_client import PostgresClient
+from src.exceptions import (
+    ConnectionError as ClientConnectionError,
+    QueryExecutionError,
+    AuthenticationError
+)
 
 
 class TestPostgresClient:
@@ -18,7 +24,8 @@ class TestPostgresClient:
             port=5432,
             database='test_db',
             user='test_user',
-            password='test_pass'
+            password='test_pass',
+            connect_timeout=10
         )
         assert client.connection == mock_connection
     
@@ -79,7 +86,7 @@ class TestPostgresClient:
     def test_execute_query_not_connected(self, sample_postgres_config):
         client = PostgresClient(sample_postgres_config)
         
-        with pytest.raises(ConnectionError, match="Client not connected"):
+        with pytest.raises(ClientConnectionError, match="Client not connected"):
             client.execute_query("SELECT * FROM users")
     
     @patch('src.clients.postgres_client.psycopg2.connect')
@@ -107,4 +114,109 @@ class TestPostgresClient:
         with client:
             assert client.connection is not None
         
+        mock_connection.close.assert_called_once()
+    
+    # Error Handling Tests
+    
+    @patch('src.clients.postgres_client.psycopg2.connect')
+    def test_connect_operational_error(self, mock_connect, sample_postgres_config):
+        """Test connection failure raises ClientConnectionError."""
+        mock_connect.side_effect = psycopg2.OperationalError("Connection refused")
+        
+        client = PostgresClient(sample_postgres_config)
+        
+        with pytest.raises(ClientConnectionError) as exc_info:
+            client.connect()
+        
+        assert "Connection refused" in str(exc_info.value)
+    
+    @patch('src.clients.postgres_client.psycopg2.connect')
+    def test_connect_authentication_error(self, mock_connect, sample_postgres_config):
+        """Test authentication failure raises AuthenticationError."""
+        mock_connect.side_effect = psycopg2.OperationalError("authentication failed for user")
+        
+        client = PostgresClient(sample_postgres_config)
+        
+        with pytest.raises(AuthenticationError) as exc_info:
+            client.connect()
+        
+        assert "authentication failed" in str(exc_info.value).lower()
+    
+    @patch('src.clients.postgres_client.psycopg2.connect')
+    def test_connect_unexpected_error(self, mock_connect, sample_postgres_config):
+        """Test unexpected connection error raises ClientConnectionError."""
+        mock_connect.side_effect = Exception("Unexpected error")
+        
+        client = PostgresClient(sample_postgres_config)
+        
+        with pytest.raises(ClientConnectionError) as exc_info:
+            client.connect()
+        
+        assert "Unexpected error" in str(exc_info.value)
+    
+    @patch('src.clients.postgres_client.psycopg2.connect')
+    def test_execute_query_psycopg2_error(self, mock_connect, sample_postgres_config):
+        """Test query execution error raises QueryExecutionError."""
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = psycopg2.Error("Syntax error")
+        
+        mock_connection = Mock()
+        mock_connection.cursor.return_value = mock_cursor
+        mock_connect.return_value = mock_connection
+        
+        client = PostgresClient(sample_postgres_config)
+        client.connect()
+        
+        with pytest.raises(QueryExecutionError) as exc_info:
+            client.execute_query("INVALID SQL")
+        
+        assert "Syntax error" in str(exc_info.value)
+    
+    @patch('src.clients.postgres_client.psycopg2.connect')
+    def test_execute_query_unexpected_error(self, mock_connect, sample_postgres_config):
+        """Test unexpected query error raises QueryExecutionError."""
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = RuntimeError("Unexpected runtime error")
+        
+        mock_connection = Mock()
+        mock_connection.cursor.return_value = mock_cursor
+        mock_connect.return_value = mock_connection
+        
+        client = PostgresClient(sample_postgres_config)
+        client.connect()
+        
+        with pytest.raises(QueryExecutionError) as exc_info:
+            client.execute_query("SELECT * FROM users")
+        
+        assert "Unexpected runtime error" in str(exc_info.value)
+    
+    @patch('src.clients.postgres_client.psycopg2.connect')
+    def test_disconnect_with_error(self, mock_connect, sample_postgres_config):
+        """Test disconnect handles errors gracefully."""
+        mock_connection = Mock()
+        mock_connection.close.side_effect = Exception("Close error")
+        mock_connect.return_value = mock_connection
+        
+        client = PostgresClient(sample_postgres_config)
+        client.connect()
+        
+        # Should not raise exception, just log it
+        client.disconnect()
+        
+        # Connection should be set to None even on error
+        assert client.connection is None
+    
+    @patch('src.clients.postgres_client.psycopg2.connect')
+    def test_context_manager_with_exception(self, mock_connect, sample_postgres_config):
+        """Test context manager handles exceptions properly."""
+        mock_connection = Mock()
+        mock_connect.return_value = mock_connection
+        
+        client = PostgresClient(sample_postgres_config)
+        
+        with pytest.raises(RuntimeError):
+            with client:
+                raise RuntimeError("Test error")
+        
+        # Connection should be closed even after exception
         mock_connection.close.assert_called_once()

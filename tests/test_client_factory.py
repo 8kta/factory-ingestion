@@ -8,6 +8,11 @@ from src.client_factory import ClientFactory, ClientBuilder
 from src.clients.postgres_client import PostgresClient
 from src.clients.mysql_client import MySQLClient
 from src.clients.sqlite_client import SQLiteClient
+from src.exceptions import (
+    ConfigurationError,
+    InvalidSourceTypeError,
+    ClientNotFoundError
+)
 
 
 class TestClientFactory:
@@ -43,14 +48,32 @@ class TestClientFactory:
         assert loaded_config == config_data
     
     def test_load_config_file_not_found(self):
-        with pytest.raises(FileNotFoundError, match="Configuration file not found"):
+        """Test ConfigurationError is raised for missing file."""
+        with pytest.raises(ConfigurationError, match="Configuration file not found"):
             ClientFactory.load_config("/nonexistent/config.yaml")
     
     def test_load_config_unsupported_format(self, tmp_path):
+        """Test ConfigurationError is raised for unsupported format."""
         config_file = tmp_path / "test_config.txt"
         config_file.write_text("some text")
         
-        with pytest.raises(ValueError, match="Unsupported configuration file format"):
+        with pytest.raises(ConfigurationError, match="Unsupported configuration file format"):
+            ClientFactory.load_config(str(config_file))
+    
+    def test_load_config_invalid_yaml(self, tmp_path):
+        """Test ConfigurationError is raised for invalid YAML."""
+        config_file = tmp_path / "invalid.yaml"
+        config_file.write_text("invalid: yaml: content: [")
+        
+        with pytest.raises(ConfigurationError, match="Invalid YAML format"):
+            ClientFactory.load_config(str(config_file))
+    
+    def test_load_config_invalid_json(self, tmp_path):
+        """Test ConfigurationError is raised for invalid JSON."""
+        config_file = tmp_path / "invalid.json"
+        config_file.write_text('{"invalid": json content}')
+        
+        with pytest.raises(ConfigurationError, match="Invalid JSON format"):
             ClientFactory.load_config(str(config_file))
     
     def test_create_client_postgres(self, sample_postgres_config):
@@ -81,7 +104,8 @@ class TestClientFactory:
         assert isinstance(client3, PostgresClient)
     
     def test_create_client_unsupported_type(self, sample_postgres_config):
-        with pytest.raises(ValueError, match="Unsupported source type"):
+        """Test InvalidSourceTypeError is raised for unsupported type."""
+        with pytest.raises(InvalidSourceTypeError, match="Unsupported source type"):
             ClientFactory.create_client('unsupported_db', sample_postgres_config)
     
     def test_create_from_config_file_single_source(self, tmp_path, sample_postgres_config):
@@ -134,10 +158,11 @@ class TestClientFactory:
         with open(config_file, 'w') as f:
             yaml.dump(config_data, f)
         
-        with pytest.raises(ValueError, match="Please specify source_name"):
+        with pytest.raises(ConfigurationError, match="Please specify source_name"):
             ClientFactory.create_from_config_file(str(config_file))
     
     def test_create_from_config_file_source_not_found(self, tmp_path, sample_postgres_config):
+        """Test ClientNotFoundError is raised for missing source."""
         config_data = {
             'sources': {
                 'my_postgres': {
@@ -151,10 +176,11 @@ class TestClientFactory:
         with open(config_file, 'w') as f:
             yaml.dump(config_data, f)
         
-        with pytest.raises(ValueError, match="Source 'nonexistent' not found"):
+        with pytest.raises(ClientNotFoundError, match="Source 'nonexistent' not found"):
             ClientFactory.create_from_config_file(str(config_file), 'nonexistent')
     
     def test_create_from_config_file_no_type(self, tmp_path):
+        """Test ConfigurationError is raised when type is missing."""
         config_data = {
             'host': 'localhost',
             'port': 5432
@@ -164,7 +190,7 @@ class TestClientFactory:
         with open(config_file, 'w') as f:
             yaml.dump(config_data, f)
         
-        with pytest.raises(ValueError, match="Source type not specified"):
+        with pytest.raises(ConfigurationError, match="Source type not specified"):
             ClientFactory.create_from_config_file(str(config_file))
 
 
@@ -246,10 +272,11 @@ class TestClientBuilder:
         assert isinstance(client, PostgresClient)
     
     def test_build_without_source_type(self):
+        """Test ConfigurationError is raised when source type is missing."""
         builder = ClientBuilder()
         builder.add_config_param('host', 'localhost')
         
-        with pytest.raises(ValueError, match="Source type must be specified"):
+        with pytest.raises(ConfigurationError, match="Source type must be specified"):
             builder.build()
     
     def test_build_config_file_priority(self, tmp_path, sample_mysql_config):

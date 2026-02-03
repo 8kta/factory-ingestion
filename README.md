@@ -180,6 +180,47 @@ factory-ingestion/
 └── requirements.txt             # Python dependencies
 ```
 
+## Error Handling and Logging
+
+The library includes comprehensive error handling and structured logging throughout the application.
+
+### Custom Exceptions
+
+All exceptions inherit from `FactoryIngestionError`:
+- `ConnectionError` - Connection failures
+- `QueryExecutionError` - Query execution failures  
+- `ConfigurationError` - Configuration issues
+- `InvalidSourceTypeError` - Unsupported source type
+- `AuthenticationError` - Authentication failures
+- And more...
+
+### Logging
+
+Configure logging levels and output:
+
+```python
+from src.logging_config import setup_logging
+
+# Setup with file output
+setup_logging(
+    level='DEBUG',
+    log_file='logs/app.log',
+    log_to_console=True
+)
+```
+
+CLI logging options:
+
+```bash
+# Debug level logging
+python main.py --config config.yaml --source my_db --query "SELECT 1" --log-level DEBUG
+
+# Log to file
+python main.py --config config.yaml --source my_db --query "SELECT 1" --log-file logs/app.log
+```
+
+See `ERROR_HANDLING_AND_LOGGING.md` for detailed documentation.
+
 ## Testing
 
 The project includes comprehensive unit tests with mocked connections that can run locally without requiring actual database or service connections.
